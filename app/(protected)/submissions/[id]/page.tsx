@@ -48,20 +48,6 @@ export default async function SubmissionDetailPage({ params }: SubmissionDetailP
         notFound();
     }
 
-    // All roles can now view all submissions
-    const getAccessMessage = () => {
-        switch (session.user.role) {
-            case Role.ADMIN:
-                return "Full system access";
-            case Role.DIRECTOR:
-                return "Full access to all organizations";
-            case Role.ANALYST:
-                return "Viewing submissions from all organizations";
-            default:
-                return "Limited access";
-        }
-    };
-
     // Check if risks are aligned across submissions
     const risks = submissions.map((s: any) => s.risk);
     const uniqueRisks = [...new Set(risks)];

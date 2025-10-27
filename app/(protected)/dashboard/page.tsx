@@ -27,11 +27,11 @@ export default async function DashboardPage() {
     const getAccessMessage = () => {
         switch (user.role) {
             case "ADMIN":
-                return "Full system access - You can view and manage all organizations and data";
+                return "Full system access - You can view and manage all organizations and submissions";
             case "DIRECTOR":
-                return `Access to ${user.organization.name} data - You can view and manage all data within your organization`;
+                return `You can view all submissions and manage all submissions within your organization`;
             case "ANALYST":
-                return `Limited access to ${user.organization.name} data - You can view limited data fields within your organization`;
+                return `You can view all submissions and can only edit and delete your own submissions`;
             default:
                 return "Unknown access level";
         }
