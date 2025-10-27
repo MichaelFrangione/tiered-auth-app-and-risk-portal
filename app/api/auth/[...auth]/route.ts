@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { Role } from "@prisma/client";
 
 export const authOptions: NextAuthConfig = {
+    secret: process.env.AUTH_SECRET,
     providers: [
         Credentials({
             name: "credentials",
