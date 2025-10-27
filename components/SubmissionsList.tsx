@@ -81,6 +81,9 @@ export default function SubmissionsList({ userRole, userOrganizationId, userId }
         return acc;
     }, {} as Record<string, Submission[]>);
 
+    // Sort grouped submissions by tag_name for consistent ordering
+    const sortedGroupedSubmissions = Object.entries(groupedSubmissions).sort(([a], [b]) => a.localeCompare(b));
+
     if (loading) {
         return (
             <div className="bg-white shadow rounded-lg p-6">
@@ -121,12 +124,6 @@ export default function SubmissionsList({ userRole, userOrganizationId, userId }
                 </div>
                 <div className="flex items-center space-x-4">
                     <Link
-                        href="/submissions/mismatches"
-                        className="px-4 py-2 bg-yellow-600 text-white text-sm font-medium rounded-md hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500"
-                    >
-                        ⚠️ View Mismatches
-                    </Link>
-                    <Link
                         href="/submissions/new"
                         className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                     >
@@ -142,7 +139,7 @@ export default function SubmissionsList({ userRole, userOrganizationId, userId }
             {/* Submissions List - Grouped by tag_name */}
             {submissions.length > 0 ? (
                 <div className="space-y-4">
-                    {Object.entries(groupedSubmissions).map(([tagName, tagSubmissions]) => (
+                    {sortedGroupedSubmissions.map(([tagName, tagSubmissions]) => (
                         <div key={tagName} className="border border-gray-300 rounded-lg overflow-hidden">
                             <Link
                                 href={`/submissions/${encodeURIComponent(tagName)}`}

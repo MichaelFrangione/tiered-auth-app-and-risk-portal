@@ -111,177 +111,322 @@ async function main() {
     },
   });
 
+  // Create director and analysts for Company3
+  const director3 = await prisma.user.upsert({
+    where: { email: 'director3@company3.com' },
+    update: {},
+    create: {
+      name: 'Director Three',
+      email: 'director3@company3.com',
+      password: hashedPassword,
+      role: Role.DIRECTOR,
+      organization_id: company3.id,
+    },
+  });
+
+  const analyst4 = await prisma.user.upsert({
+    where: { email: 'analyst4@company3.com' },
+    update: {},
+    create: {
+      name: 'Analyst Four',
+      email: 'analyst4@company3.com',
+      password: hashedPassword,
+      role: Role.ANALYST,
+      organization_id: company3.id,
+    },
+  });
+
+  const analyst5 = await prisma.user.upsert({
+    where: { email: 'analyst5@company3.com' },
+    update: {},
+    create: {
+      name: 'Analyst Five',
+      email: 'analyst5@company3.com',
+      password: hashedPassword,
+      role: Role.ANALYST,
+      organization_id: company3.id,
+    },
+  });
+
   console.log('✅ Users created');
 
   // Create sample submissions with tag_name and risk fields
-  // Some submissions will have the same tag_name to show multi-org grouping
+  // Same tag names can appear across multiple organizations to show grouping
+  // Admin does not create any submissions
   // @ts-ignore - tag_name and risk fields exist after migration
   await prisma.submission.createMany({
     data: [
-      // Company1 submissions - SUB-001 (will have multiple org versions)
+      // SUB-001: appears in all 3 organizations
       {
         user_id: director1.id,
         organization_id: company1.id,
-        // @ts-ignore - fields exist after migration
         tag_name: 'SUB-001',
         risk: 'HIGH',
-        data: { history: [] },
+        data: {
+          history: [],
+          sensitive_info: 'Internal investigation notes: Possible compliance issue detected during Q3 audit.'
+        },
       },
+      {
+        user_id: director2.id,
+        organization_id: company2.id,
+        tag_name: 'SUB-001',
+        risk: 'MEDIUM',
+        data: {
+          history: [],
+          sensitive_info: 'Director review: Authorized for public disclosure pending final approval.'
+        },
+      },
+      {
+        user_id: director3.id,
+        organization_id: company3.id,
+        tag_name: 'SUB-001',
+        risk: 'LOW',
+        data: {
+          history: [],
+          sensitive_info: 'Director assessment: Cross-organizational review completed successfully.'
+        },
+      },
+
+      // SUB-002: only Company1
       {
         user_id: analyst1.id,
         organization_id: company1.id,
-        // @ts-ignore - fields exist after migration
         tag_name: 'SUB-002',
         risk: 'MEDIUM',
-        data: { history: [] },
-      },
-      
-      // Company2 submissions - SUB-001 (same tag as Company1)
-      {
-        user_id: director2.id,
-        organization_id: company2.id,
-        // @ts-ignore - fields exist after migration
-        tag_name: 'SUB-001',
-        risk: 'LOW',
-        data: { history: [] },
-      },
-      {
-        user_id: analyst3.id,
-        organization_id: company2.id,
-        // @ts-ignore - fields exist after migration
-        tag_name: 'SUB-003',
-        risk: 'NONE',
-        data: { history: [] },
+        data: {
+          history: []
+        },
       },
 
-      // Company1 - SUB-003 (will have multiple org versions)
+      // SUB-003: appears in Company1 and Company2 - SAME risk (NO MISMATCH)
       {
         user_id: analyst1.id,
         organization_id: company1.id,
-        // @ts-ignore - fields exist after migration
         tag_name: 'SUB-003',
         risk: 'HIGH',
-        data: { history: [] },
+        data: {
+          history: []
+        },
       },
-
-      // Company2 - SUB-004 (will have multiple org versions)
       {
         user_id: analyst3.id,
         organization_id: company2.id,
-        // @ts-ignore - fields exist after migration
-        tag_name: 'SUB-004',
-        risk: 'MEDIUM',
-        data: { history: [] },
+        tag_name: 'SUB-003',
+        risk: 'HIGH',
+        data: {
+          history: []
+        },
       },
 
-      // Company1 - SUB-004 (same tag as Company2)
+      // SUB-004: all 3 organizations - DIFFERENT risks (MISMATCH)
       {
         user_id: analyst2.id,
         organization_id: company1.id,
-        // @ts-ignore - fields exist after migration
         tag_name: 'SUB-004',
         risk: 'HIGH',
-        data: { history: [] },
+        data: {
+          history: []
+        },
+      },
+      {
+        user_id: analyst3.id,
+        organization_id: company2.id,
+        tag_name: 'SUB-004',
+        risk: 'MEDIUM',
+        data: {
+          history: []
+        },
+      },
+      {
+        user_id: analyst4.id,
+        organization_id: company3.id,
+        tag_name: 'SUB-004',
+        risk: 'LOW',
+        data: {
+          history: []
+        },
       },
 
-      // Company1 - SUB-005 (only one org)
+      // SUB-005: Company1 and Company3 - DIFFERENT risks (MISMATCH), Directors have sensitive_info
       {
         user_id: director1.id,
         organization_id: company1.id,
-        // @ts-ignore - fields exist after migration
         tag_name: 'SUB-005',
         risk: 'NONE',
-        data: { history: [] },
+        data: {
+          history: [],
+          sensitive_info: 'Director comment: All clear, approved for standard processing.'
+        },
       },
-
-      // Company2 - SUB-005 (will have multiple org versions)
       {
-        user_id: director2.id,
-        organization_id: company2.id,
-        // @ts-ignore - fields exist after migration
+        user_id: director3.id,
+        organization_id: company3.id,
         tag_name: 'SUB-005',
         risk: 'LOW',
-        data: { history: [] },
+        data: {
+          history: [],
+          sensitive_info: 'Director review: Similar case to Company1, approved for processing.'
+        },
       },
 
-      // Company1 submissions - unique tags
+      // SUB-006: only Company1
       {
         user_id: analyst1.id,
         organization_id: company1.id,
-        // @ts-ignore - fields exist after migration
         tag_name: 'SUB-006',
         risk: 'MEDIUM',
-        data: { history: [] },
-      },
-      {
-        user_id: analyst2.id,
-        organization_id: company1.id,
-        // @ts-ignore - fields exist after migration
-        tag_name: 'SUB-007',
-        risk: 'NONE',
-        data: { history: [] },
-      },
-      {
-        user_id: analyst2.id,
-        organization_id: company1.id,
-        // @ts-ignore - fields exist after migration
-        tag_name: 'SUB-008',
-        risk: 'LOW',
-        data: { history: [] },
+        data: {
+          history: []
+        },
       },
 
-      // Company2 submissions - unique tags
+      // SUB-007: Company1 and Company2 - SAME risk (NO MISMATCH)
+      {
+        user_id: analyst2.id,
+        organization_id: company1.id,
+        tag_name: 'SUB-007',
+        risk: 'MEDIUM',
+        data: {
+          history: []
+        },
+      },
       {
         user_id: analyst3.id,
         organization_id: company2.id,
-        // @ts-ignore - fields exist after migration
-        tag_name: 'SUB-009',
+        tag_name: 'SUB-007',
         risk: 'MEDIUM',
-        data: { history: [] },
+        data: {
+          history: []
+        },
       },
 
-      // More submissions for Company1
+      // SUB-008: only Company1
+      {
+        user_id: analyst2.id,
+        organization_id: company1.id,
+        tag_name: 'SUB-008',
+        risk: 'LOW',
+        data: {
+          history: []
+        },
+      },
+
+      // SUB-009: only Company2
+      {
+        user_id: analyst3.id,
+        organization_id: company2.id,
+        tag_name: 'SUB-009',
+        risk: 'MEDIUM',
+        data: {
+          history: []
+        },
+      },
+
+      // SUB-010: all 3 organizations - SAME risk (NO MISMATCH), Directors have sensitive_info
       {
         user_id: director1.id,
         organization_id: company1.id,
-        // @ts-ignore - fields exist after migration
         tag_name: 'SUB-010',
         risk: 'HIGH',
-        data: { history: [] },
+        data: {
+          history: [],
+          sensitive_info: 'Emergency review: Immediate action required by legal team.'
+        },
       },
-      {
-        user_id: analyst1.id,
-        organization_id: company1.id,
-        // @ts-ignore - fields exist after migration
-        tag_name: 'SUB-011',
-        risk: 'MEDIUM',
-        data: { history: [] },
-      },
-      {
-        user_id: analyst2.id,
-        organization_id: company1.id,
-        // @ts-ignore - fields exist after migration
-        tag_name: 'SUB-012',
-        risk: 'LOW',
-        data: { history: [] },
-      },
-
-      // More submissions for Company2
       {
         user_id: director2.id,
         organization_id: company2.id,
-        // @ts-ignore - fields exist after migration
         tag_name: 'SUB-010',
-        risk: 'LOW',
-        data: { history: [] },
+        risk: 'HIGH',
+        data: {
+          history: [],
+          sensitive_info: 'Director assessment: Coordinated response needed across all organizations.'
+        },
       },
+      {
+        user_id: director3.id,
+        organization_id: company3.id,
+        tag_name: 'SUB-010',
+        risk: 'HIGH',
+        data: {
+          history: [],
+          sensitive_info: 'Urgent: Financial discrepancies detected in coordinated audit.'
+        },
+      },
+
+      // SUB-011: only Company1
+      {
+        user_id: analyst1.id,
+        organization_id: company1.id,
+        tag_name: 'SUB-011',
+        risk: 'MEDIUM',
+        data: {
+          history: []
+        },
+      },
+
+      // SUB-012: Company2 and Company3 - DIFFERENT risks (MISMATCH), Director has sensitive_info
+      {
+        user_id: director2.id,
+        organization_id: company2.id,
+        tag_name: 'SUB-012',
+        risk: 'LOW',
+        data: {
+          history: [],
+          sensitive_info: 'Director assessment: No concerns, proceed with standard workflow.'
+        },
+      },
+      {
+        user_id: analyst5.id,
+        organization_id: company3.id,
+        tag_name: 'SUB-012',
+        risk: 'HIGH',
+        data: {
+          history: []
+        },
+      },
+
+      // SUB-013: only Company2
       {
         user_id: analyst3.id,
         organization_id: company2.id,
-        // @ts-ignore - fields exist after migration
         tag_name: 'SUB-013',
         risk: 'HIGH',
-        data: { history: [] },
+        data: {
+          history: []
+        },
+      },
+
+      // SUB-014: Company1 and Company3 - DIFFERENT risks (MISMATCH)
+      {
+        user_id: analyst2.id,
+        organization_id: company1.id,
+        tag_name: 'SUB-014',
+        risk: 'LOW',
+        data: {
+          history: []
+        },
+      },
+      {
+        user_id: analyst4.id,
+        organization_id: company3.id,
+        tag_name: 'SUB-014',
+        risk: 'HIGH',
+        data: {
+          history: []
+        },
+      },
+
+      // SUB-015: only Company3
+      {
+        user_id: analyst5.id,
+        organization_id: company3.id,
+        tag_name: 'SUB-015',
+        risk: 'MEDIUM',
+        data: {
+          history: []
+        },
       },
     ],
   });
@@ -293,9 +438,12 @@ async function main() {
   console.log('Admin: admin@example.com / password123');
   console.log('Director 1: director1@company1.com / password123');
   console.log('Director 2: director2@company2.com / password123');
+  console.log('Director 3: director3@company3.com / password123');
   console.log('Analyst 1: analyst1@company1.com / password123');
   console.log('Analyst 2: analyst2@company1.com / password123');
   console.log('Analyst 3: analyst3@company2.com / password123');
+  console.log('Analyst 4: analyst4@company3.com / password123');
+  console.log('Analyst 5: analyst5@company3.com / password123');
 }
 
 main()

@@ -27,34 +27,34 @@ enum Risk {
 }
 
 model User {
-  id             String    @id @default(cuid())
-  name           String
-  email          String    @unique
-  password       String    // hashed with bcrypt
+  id              String       @id @default(cuid())
+  name            String
+  email           String       @unique
+  password        String // hashed with bcrypt
   organization_id String
-  role           Role      @default(ANALYST)
-  organization   Organization @relation(fields: [organization_id], references: [id])
-  submissions    Submission[]
-  created_at     DateTime  @default(now())
-  updated_at     DateTime  @updatedAt
+  role            Role         @default(ANALYST)
+  organization    Organization @relation(fields: [organization_id], references: [id])
+  submissions     Submission[]
+  created_at      DateTime     @default(now())
+  updated_at      DateTime     @updatedAt
 }
 
 model Organization {
-  id          String       @id @default(cuid())
-  name        String       @unique
-  users       User[]
-  created_at  DateTime     @default(now())
-  updated_at  DateTime     @updatedAt
+  id         String   @id @default(cuid())
+  name       String   @unique
+  users      User[]
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 }
 
 model Submission {
-  id             String @id @default(cuid())
-  user_id        String
+  id              String   @id @default(cuid())
+  user_id         String
   organization_id String
-  user           User   @relation(fields: [user_id], references: [id])
-  tag_name       String
-  risk           Risk   @default(NONE)
-  data           Json   // flexible for POC
-  created_at     DateTime @default(now())
-  updated_at     DateTime @updatedAt
+  user            User     @relation(fields: [user_id], references: [id])
+  tag_name        String
+  risk            Risk     @default(NONE)
+  data            Json // flexible for POC
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
 }

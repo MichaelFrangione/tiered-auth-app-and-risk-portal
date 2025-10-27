@@ -3,7 +3,7 @@ export interface SubmissionHistoryEntry {
     changed_by_name: string;
     changed_at: string; // ISO timestamp
     changes: Array<{
-        field: 'risk';
+        field: 'risk' | 'sensitive_info';
         old_value: string;
         new_value: string;
     }>;
@@ -25,14 +25,16 @@ export function addHistoryEntry(
     userId: string,
     userName: string,
     oldRisk?: string,
-    newRisk?: string
+    newRisk?: string,
+    oldSensitiveInfo?: string,
+    newSensitiveInfo?: string
 ): SubmissionData {
     const changes: SubmissionHistoryEntry['changes'] = [];
 
     // Check for title changes
     if (currentData.title !== newTitle) {
         changes.push({
-            field: 'title',
+            field: 'title' as any,
             old_value: currentData.title,
             new_value: newTitle
         });
@@ -41,7 +43,7 @@ export function addHistoryEntry(
     // Check for content changes
     if (currentData.content !== newContent) {
         changes.push({
-            field: 'content',
+            field: 'content' as any,
             old_value: currentData.content,
             new_value: newContent
         });
@@ -53,6 +55,15 @@ export function addHistoryEntry(
             field: 'risk',
             old_value: oldRisk,
             new_value: newRisk
+        });
+    }
+
+    // Check for sensitive_info changes
+    if (oldSensitiveInfo !== undefined && newSensitiveInfo !== undefined && oldSensitiveInfo !== newSensitiveInfo) {
+        changes.push({
+            field: 'sensitive_info',
+            old_value: oldSensitiveInfo || '',
+            new_value: newSensitiveInfo || ''
         });
     }
 
@@ -80,7 +91,7 @@ export function addHistoryEntry(
 /**
  * Format history entries for display in the UI
  */
-export function formatHistoryForDisplay(history: SubmissionHistoryEntry[]): string[] {
+export function formatHistoryForDisplay(history: SubmissionHistoryEntry[], hideSensitiveInfo = false): string[] {
     return history.map(entry => {
         const date = new Date(entry.changed_at);
         // Use consistent formatting to avoid hydration issues
@@ -88,10 +99,27 @@ export function formatHistoryForDisplay(history: SubmissionHistoryEntry[]): stri
         const formattedTime = date.toISOString().split('T')[1].split('.')[0]; // HH:MM:SS
 
         const changeDescriptions = entry.changes
-            .filter(change => change.field === 'risk') // Only show risk changes
+            .filter(change => change.field === 'risk' || change.field === 'sensitive_info')
             .map(change => {
-                return `Risk from '${change.old_value || ''}' to '${change.new_value || ''}'`;
-            });
+                if (change.field === 'risk') {
+                    return `risk from '${change.old_value || ''}' to '${change.new_value || ''}'`;
+                } else if (change.field === 'sensitive_info') {
+                    // Hide sensitive info details for analysts
+                    if (hideSensitiveInfo) {
+                        return `internal notes`;
+                    } else {
+                        const oldVal = change.old_value || '(empty)';
+                        const newVal = change.new_value || '(empty)';
+                        return `internal notes from '${oldVal.substring(0, 20)}${oldVal.length > 20 ? '...' : ''}' to '${newVal.substring(0, 20)}${newVal.length > 20 ? '...' : ''}'`;
+                    }
+                }
+                return '';
+            })
+            .filter(desc => desc !== ''); // Remove empty strings
+
+        if (changeDescriptions.length === 0) {
+            return `${entry.changed_by_name} made changes on ${formattedDate} at ${formattedTime}`;
+        }
 
         return `${entry.changed_by_name} changed ${changeDescriptions.join(' and ')} on ${formattedDate} at ${formattedTime}`;
     });

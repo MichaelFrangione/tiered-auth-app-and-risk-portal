@@ -39,9 +39,10 @@ export default async function SubmissionDetailPage({ params }: SubmissionDetailP
                 },
             },
         },
-        orderBy: {
-            created_at: 'desc',
-        },
+        orderBy: [
+            { created_at: 'desc' },
+            { id: 'asc' }, // Secondary sort to ensure stable ordering
+        ],
     }) as any; // Type assertion needed until migration is run and Prisma client is regenerated
 
     if (!submissions || submissions.length === 0) {
@@ -130,6 +131,36 @@ export default async function SubmissionDetailPage({ params }: SubmissionDetailP
                                     </div>
                                 </div>
 
+                                {/* Sensitive Info Section - Only visible to authorized users */}
+                                {(() => {
+                                    // Check if current user can view sensitive info
+                                    const canViewSensitiveInfo =
+                                        session.user.role === Role.ADMIN ||
+                                        session.user.role === Role.DIRECTOR ||
+                                        (session.user.role === Role.ANALYST && submission.user_id === session.user.id);
+
+                                    const sensitiveInfo = (submission.data as any)?.sensitive_info;
+
+                                    if (canViewSensitiveInfo && sensitiveInfo) {
+                                        return (
+                                            <div className="bg-gray-100 px-6 py-4 border-t border-gray-200">
+                                                <div className="flex items-start">
+
+                                                    <div>
+                                                        <h3 className="text-sm font-semibold text-black uppercase tracking-wide mb-2">
+                                                            📝 Internal Notes
+                                                        </h3>
+                                                        <p className="text-sm text-gray-700">
+                                                            {sensitiveInfo}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    }
+                                    return null;
+                                })()}
+
                                 {/* Footer with dates */}
                                 <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
                                     <div className="grid grid-cols-3 gap-4 text-sm">
@@ -165,16 +196,30 @@ export default async function SubmissionDetailPage({ params }: SubmissionDetailP
 
                                 {/* Controls Container */}
                                 <div className="bg-white px-6 py-4">
-                                    <SubmissionControls
-                                        submissionId={submission.id}
-                                        userRole={session.user.role}
-                                        submissionUserId={submission.user_id}
-                                        currentUserId={session.user.id}
-                                        userOrganizationId={session.user.organization_id}
-                                        submissionOrganizationId={submission.organization_id}
-                                        history={(submission.data as any)?.history || []}
-                                        risk={(submission as any).risk}
-                                    />
+                                    {(() => {
+                                        const canViewSensitiveInfo =
+                                            session.user.role === Role.ADMIN ||
+                                            session.user.role === Role.DIRECTOR ||
+                                            (session.user.role === Role.ANALYST && submission.user_id === session.user.id);
+
+                                        const sensitiveInfo = (submission.data as any)?.sensitive_info;
+
+                                        return (
+                                            <SubmissionControls
+                                                submissionId={submission.id}
+                                                userRole={session.user.role}
+                                                submissionUserId={submission.user_id}
+                                                currentUserId={session.user.id}
+                                                userOrganizationId={session.user.organization_id}
+                                                submissionOrganizationId={submission.organization_id}
+                                                history={(submission.data as any)?.history || []}
+                                                risk={(submission as any).risk}
+                                                sensitiveInfo={sensitiveInfo}
+                                                canViewSensitiveInfo={canViewSensitiveInfo}
+                                                tagName={tagName}
+                                            />
+                                        );
+                                    })()}
                                 </div>
                             </div>
                         ))}

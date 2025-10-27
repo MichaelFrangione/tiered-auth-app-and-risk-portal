@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Role } from "@prisma/client";
 import { canEditSubmission, canDeleteSubmission, type SubmissionPermissionContext } from "@/lib/submission-permissions";
 import { formatHistoryForDisplay, type SubmissionHistoryEntry } from "@/lib/submission-history";
@@ -14,9 +15,12 @@ interface SubmissionControlsProps {
     submissionOrganizationId: string;
     history: SubmissionHistoryEntry[];
     risk: string;
+    sensitiveInfo?: string;
+    canViewSensitiveInfo?: boolean;
     onRiskChange?: (newRisk: string) => void;
     isEditing?: boolean;
     onEditClick?: () => void;
+    tagName?: string;
 }
 
 export default function SubmissionControls({
@@ -28,15 +32,33 @@ export default function SubmissionControls({
     submissionOrganizationId,
     history,
     risk,
+    sensitiveInfo,
+    canViewSensitiveInfo,
     onRiskChange,
     isEditing: parentIsEditing,
-    onEditClick
+    onEditClick,
+    tagName
 }: SubmissionControlsProps) {
+    const router = useRouter();
     const [isEditing, setIsEditing] = useState(parentIsEditing || false);
     const [riskLevel, setRiskLevel] = useState(risk);
+    const [sensitiveInfoValue, setSensitiveInfoValue] = useState(sensitiveInfo || '');
     const [isLoading, setIsLoading] = useState(false);
     const [currentHistory, setCurrentHistory] = useState(history);
     const [showHistoryModal, setShowHistoryModal] = useState(false);
+
+    // Sync props with state when they change
+    useEffect(() => {
+        setRiskLevel(risk);
+    }, [risk]);
+
+    useEffect(() => {
+        setSensitiveInfoValue(sensitiveInfo || '');
+    }, [sensitiveInfo]);
+
+    useEffect(() => {
+        setCurrentHistory(history);
+    }, [history]);
 
     // Check permissions using utility functions
     const permissionContext: SubmissionPermissionContext = {
@@ -53,14 +75,21 @@ export default function SubmissionControls({
     const handleSave = async () => {
         setIsLoading(true);
         try {
+            const requestBody: any = {
+                risk: riskLevel,
+            };
+
+            // Only include sensitive_info if user has permission to edit it
+            if (userRole === Role.ADMIN || userRole === Role.DIRECTOR) {
+                requestBody.sensitive_info = sensitiveInfoValue;
+            }
+
             const response = await fetch(`/api/submissions/${submissionId}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
-                    risk: riskLevel,
-                }),
+                body: JSON.stringify(requestBody),
             });
 
             if (response.ok) {
@@ -73,7 +102,7 @@ export default function SubmissionControls({
                     }
                 }
                 setIsEditing(false);
-                window.location.reload();
+                router.refresh();
             } else {
                 const error = await response.json();
                 alert(`Failed to update submission: ${error.error || 'Unknown error'}`);
@@ -88,6 +117,7 @@ export default function SubmissionControls({
 
     const handleCancel = () => {
         setRiskLevel(risk);
+        setSensitiveInfoValue(sensitiveInfo || '');
         setIsEditing(false);
     };
 
@@ -102,7 +132,31 @@ export default function SubmissionControls({
             });
 
             if (response.ok) {
-                window.location.href = '/dashboard';
+                // If we have a tag_name and we're on the details page, check if there are remaining submissions
+                if (tagName) {
+                    try {
+                        const submissionsResponse = await fetch(`/api/submissions`);
+                        if (submissionsResponse.ok) {
+                            const allSubmissions = await submissionsResponse.json();
+                            const remainingSubmissions = allSubmissions.filter((s: any) => s.tag_name === tagName);
+
+                            if (remainingSubmissions.length > 0) {
+                                // Refresh the current page to show remaining submissions
+                                router.refresh();
+                            } else {
+                                // No remaining submissions, go to dashboard
+                                router.push('/dashboard');
+                            }
+                        } else {
+                            router.push('/dashboard');
+                        }
+                    } catch (err) {
+                        router.push('/dashboard');
+                    }
+                } else {
+                    // No tag_name, go to dashboard
+                    router.push('/dashboard');
+                }
             } else {
                 const error = await response.json();
                 alert(`Failed to delete submission: ${error.error || 'Unknown error'}`);
@@ -136,7 +190,7 @@ export default function SubmissionControls({
                         <div className="px-6 py-4 overflow-y-auto">
                             <div className="space-y-3">
                                 {currentHistory && currentHistory.length > 0 ? (
-                                    formatHistoryForDisplay(currentHistory).map((entry, index) => (
+                                    formatHistoryForDisplay(currentHistory, userRole === Role.ANALYST).map((entry, index) => (
                                         <div key={index} className="border-l-2 border-gray-200 pl-4 py-2">
                                             <p className="text-sm text-gray-700">{entry}</p>
                                         </div>
@@ -159,15 +213,15 @@ export default function SubmissionControls({
                     }}
                 >
                     <div
-                        className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6"
+                        className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 p-6"
                         onClick={(e) => e.stopPropagation()}
                     >
                         <div className="mb-4">
-                            <h3 className="text-lg font-semibold text-gray-900 mb-2">Edit Risk Level</h3>
-                            <p className="text-sm text-gray-600">Select the new risk level for this submission</p>
+                            <h3 className="text-lg font-semibold text-gray-900 mb-2">Edit Submission</h3>
+                            <p className="text-sm text-gray-600">Update the risk level and sensitive information</p>
                         </div>
 
-                        <div className="mb-6">
+                        <div className="mb-4">
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Risk Level
                             </label>
@@ -182,6 +236,21 @@ export default function SubmissionControls({
                                 <option value="HIGH">High</option>
                             </select>
                         </div>
+
+                        {(canViewSensitiveInfo && (userRole === Role.ADMIN || userRole === Role.DIRECTOR)) && (
+                            <div className="mb-6">
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Internal Notes <span className="text-red-600">📝</span>
+                                </label>
+                                <textarea
+                                    value={sensitiveInfoValue}
+                                    onChange={(e) => setSensitiveInfoValue(e.target.value)}
+                                    className="w-full px-4 py-3 text-sm text-gray-900 bg-white border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                    rows={4}
+                                    placeholder="Enter any internal notes for this submission"
+                                />
+                            </div>
+                        )}
 
                         <div className="flex items-center space-x-3">
                             <button
@@ -216,27 +285,32 @@ export default function SubmissionControls({
                             </button>
                         )}
                     </div>
-                    <div className="flex items-center space-x-3">
-                        {canEdit && (
-                            <button
-                                onClick={() => {
-                                    setIsEditing(true);
-                                    if (onEditClick) onEditClick();
-                                }}
-                                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                            >
-                                Edit
-                            </button>
-                        )}
-                        {canDelete && (
-                            <button
-                                onClick={handleDelete}
-                                className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                            >
-                                Delete
-                            </button>
-                        )}
-                    </div>
+                    {(canEdit || canDelete) && (
+                        <div className="flex items-center space-x-3">
+                            {canEdit && (
+                                <button
+                                    onClick={() => {
+                                        // Reset values to latest prop values before opening edit modal
+                                        setRiskLevel(risk);
+                                        setSensitiveInfoValue(sensitiveInfo || '');
+                                        setIsEditing(true);
+                                        if (onEditClick) onEditClick();
+                                    }}
+                                    className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                >
+                                    Edit
+                                </button>
+                            )}
+                            {canDelete && (
+                                <button
+                                    onClick={handleDelete}
+                                    className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                                >
+                                    Delete
+                                </button>
+                            )}
+                        </div>
+                    )}
                 </div>
             )}
         </>

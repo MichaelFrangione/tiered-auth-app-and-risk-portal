@@ -1,51 +1,39 @@
 # Tiered Auth Tech Spec
 
 ```mermaid
-graph TD
+graph LR
     A[User Login] --> B{Session Valid?}
     B -->|No| C[Redirect to Login]
-    B -->|Yes| D[Read Session Data]
-    D --> E[Check Access Role]
+    B -->|Yes| E[Check Access Role]
     
     E --> F[ADMIN]
     E --> G[DIRECTOR]
     E --> H[ANALYST]
     
-    F --> F1[View All Submissions]
-    F --> F2[Edit Any]
-    F --> F3[Delete Any]
-    
-    G --> G1[View All Submissions]
-    G --> G2[Edit Org Submissions]
-    G --> G3[Delete Org Submissions]
-    
-    H --> H1[View All Submissions]
-    H --> H2[Edit Own Only]
-    H --> H3[Delete Own Only]
+    F --> F1["Unrestricted Access<br/>View Any Submission<br/>Edit Any Submission<br/>Delete Any Submission<br/>View Any Sensitive Info<br/>Edit Any Sensitive Info<br/>View History<br/>View Mismatches"]
+    G --> G1["View All Submissions<br/>Edit Own Org Submissions<br/>Delete Own Org Submissions<br/>View Any Sensitive Info<br/>Edit Own Org Sensitive Info<br/>View History<br/>View Mismatches"]
+    H --> H1["View All Submissions<br/>Edit Own Submissions<br/>Delete Own Submissions<br/>View History (with redacted sensitive info)<br/>View Mismatches"]
     
     classDef admin fill:#ff6b6b,stroke:#333,color:#fff
     classDef director fill:#74b9ff,stroke:#333,color:#fff
     classDef analyst fill:#2ecc71,stroke:#333,color:#fff
+    classDef start fill:#f39c12,stroke:#333,color:#fff
     
-    class F,F1,F2,F3 admin
-    class G,G1,G2,G3 director
-    class H,H1,H2,H3 analyst
+    class F,F1 admin
+    class G,G1 director
+    class H,H1 analyst
+    class A,B,E start
 ```
 
 ## Access Matrix
 
-| Role | View Submissions | Edit Submissions | Delete Submissions |
-|------|------------------|------------------|-------------------|
-| **ADMIN** |  All | Any | Any |
-| **DIRECTOR** | All | Own Org | Own Org |
-| **ANALYST** | All | Own Only | Own Only |
+The system implements a **hierarchical access control** model described below:
 
-## Security Model
-
-The system implements a **hierarchical access control** model where:
-- **ADMIN** has system-wide privileges
-- **DIRECTOR** has organization-wide privileges
-- **ANALYST** has self-managed privileges within their organization
+| Role | View Submissions | Edit Submissions | Delete Submissions | View Sensitive Information | Edit Sensitive Information | View History | View Mismatches
+|------|------------------|------------------|-------------------|-----------------------|---------------------------|--------------|----------------|
+| **ADMIN** | Any | Any | Any | Any | Any | Any | Yes
+| **DIRECTOR** | Any | Own Org | Own Org | Any | Own Org | Any | Yes
+| **ANALYST** | Any | Own Only | Own Only | Own Only | No | Any (with redacted sensitive info) | Yes
 
 This creates a secure, scalable permission system that prevents unauthorized access while allowing appropriate levels of management within organizations.
 
@@ -69,12 +57,12 @@ Each history entry contains:
   - Old value
   - New value
 
-All roles with view access to a submission would be able to view its complete edit history, providing transparency and accountability across the organization.
+All roles with view access to a submission would be able to view its complete edit history (with the exception of analyist who would not see sensitive information change history), providing transparency and accountability across the organization.
 
 ### Open Questions:
 
 **History & Access:**
-- Should a submission's history be viewable by a user of another organization?
+- Should a submission's history and / or sensistive information be viewable by a user of another organization?
 - Should history be searchable/filterable by date range or user?
 
 **Submission Management:**
@@ -146,6 +134,11 @@ graph LR
 - **Approach 1** is ideal for the interim phase while building and scaling the app initially
 - **Approach 2** becomes a necessity once scaling to multiple organizations and higher user volumes
 
+### Other Considerations
+
+**Managed Auth Services**
+- Instead of you building, hosting, and securing our own user database and login logic, we can use a 3rd party managed auth service such as Clerk, Auth0, or Amazon Cognito. These services can be integrated into into the application using their SDKs.
+- These managed auth services would also enable restricting registration to only whitelisted institutional domains while managing the highest level of security.
 
 ## Risk Assessment Mismatch Notifications:
 

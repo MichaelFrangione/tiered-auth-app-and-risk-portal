@@ -23,9 +23,10 @@ export async function GET(request: NextRequest) {
                     },
                 },
             },
-            orderBy: {
-                created_at: 'desc',
-            },
+            orderBy: [
+                { created_at: 'desc' },
+                { id: 'asc' }, // Secondary sort to ensure stable ordering
+            ],
         });
 
         return NextResponse.json(submissions);
@@ -49,12 +50,20 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const { tag_name, risk } = await request.json();
+        const { tag_name, risk, sensitive_info } = await request.json();
 
         if (!tag_name) {
             return NextResponse.json(
                 { error: "Tag name is required" },
                 { status: 400 }
+            );
+        }
+
+        // Restrict sensitive_info to directors and admins only
+        if (sensitive_info && session.user.role === Role.ANALYST) {
+            return NextResponse.json(
+                { error: "Analysts cannot add sensitive information" },
+                { status: 403 }
             );
         }
 
@@ -83,6 +92,12 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        // Prepare data object with optional sensitive_info
+        const submissionData: any = { history: [] };
+        if (sensitive_info && sensitive_info.trim()) {
+            submissionData.sensitive_info = sensitive_info.trim();
+        }
+
         // Create new submission
         const newSubmission = await db.submission.create({
             data: {
@@ -91,9 +106,7 @@ export async function POST(request: NextRequest) {
                 // @ts-ignore - tag_name and risk fields exist after migration
                 tag_name: tag_name.trim(),
                 risk: risk || 'NONE',
-                data: {
-                    history: []
-                }
+                data: submissionData
             },
             include: {
                 user: {

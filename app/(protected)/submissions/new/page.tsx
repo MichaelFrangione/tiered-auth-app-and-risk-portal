@@ -2,15 +2,21 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import Link from "next/link";
+import { Role } from "@prisma/client";
 
 export default function NewSubmissionPage() {
+    const { data: session } = useSession();
     const [tagName, setTagName] = useState("");
     const [risk, setRisk] = useState("NONE");
+    const [sensitiveInfo, setSensitiveInfo] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState("");
     const [existingSubmission, setExistingSubmission] = useState<any>(null);
     const router = useRouter();
+
+    const canAddSensitiveInfo = session?.user?.role === Role.ADMIN || session?.user?.role === Role.DIRECTOR;
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -24,15 +30,22 @@ export default function NewSubmissionPage() {
         }
 
         try {
+            const requestBody: any = {
+                tag_name: tagName.trim(),
+                risk: risk,
+            };
+
+            // Only include sensitive_info if user has permission to add it
+            if (canAddSensitiveInfo && sensitiveInfo.trim()) {
+                requestBody.sensitive_info = sensitiveInfo.trim();
+            }
+
             const response = await fetch("/api/submissions", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                 },
-                body: JSON.stringify({
-                    tag_name: tagName.trim(),
-                    risk: risk,
-                }),
+                body: JSON.stringify(requestBody),
             });
 
             if (response.ok) {
@@ -109,6 +122,22 @@ export default function NewSubmissionPage() {
                                     <option value="HIGH">High</option>
                                 </select>
                             </div>
+
+                            {canAddSensitiveInfo && (
+                                <div>
+                                    <label htmlFor="sensitiveInfo" className="block text-sm font-medium text-gray-700 mb-2">
+                                        Internal Notes <span className="text-red-600">📝</span>
+                                    </label>
+                                    <textarea
+                                        id="sensitiveInfo"
+                                        value={sensitiveInfo}
+                                        onChange={(e) => setSensitiveInfo(e.target.value)}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                        placeholder="Enter any internal notes for this submission"
+                                        rows={4}
+                                    />
+                                </div>
+                            )}
 
                             {error && (
                                 <div className="bg-red-50 border border-red-200 rounded-md p-4">

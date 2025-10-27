@@ -23,9 +23,9 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
         const { id } = await params;
         const body = await request.json();
-        const { risk } = body;
+        const { risk, sensitive_info } = body;
 
-        console.log('Update submission request:', { id, risk });
+        console.log('Update submission request:', { id, risk, sensitive_info });
 
         // Check if submission exists
         const existingSubmission = await db.submission.findUnique({
@@ -53,6 +53,14 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
             );
         }
 
+        // Restrict sensitive_info updates to directors and admins only
+        if (sensitive_info !== undefined && session.user.role === Role.ANALYST) {
+            return NextResponse.json(
+                { error: "Analysts cannot add or edit sensitive information" },
+                { status: 403 }
+            );
+        }
+
         // Get current and new risk values
         const oldRisk = (existingSubmission as any).risk;
         const newRisk = risk;
@@ -60,16 +68,32 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         // Get current submission data
         const currentData = existingSubmission.data as any || { history: [] };
 
-        // Add history entry for risk change
-        const updatedData = addHistoryEntry(
+        // Get current and new sensitive_info values
+        const oldSensitiveInfo = currentData.sensitive_info || '';
+        const newSensitiveInfo = sensitive_info !== undefined ? (sensitive_info.trim() || '') : currentData.sensitive_info || '';
+
+        // Add history entry for risk and sensitive_info changes (this creates a new history array)
+        const historyUpdate = addHistoryEntry(
             currentData,
             '', // no title
             '', // no content
             session.user.id,
             session.user.name || 'Unknown User',
             oldRisk,
-            newRisk
+            newRisk,
+            oldSensitiveInfo,
+            newSensitiveInfo
         );
+
+        // Preserve all existing data fields and update with new values
+        const updatedData = {
+            ...currentData, // Preserve all existing fields
+            history: historyUpdate.history || currentData.history || [],
+            // Update sensitive_info if provided
+            sensitive_info: sensitive_info !== undefined
+                ? (sensitive_info.trim() || null)
+                : currentData.sensitive_info
+        };
 
         // Update submission
         const updateData: any = {
@@ -143,7 +167,6 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
             );
         }
 
-        // Delete submission
         await db.submission.delete({
             where: { id },
         });
