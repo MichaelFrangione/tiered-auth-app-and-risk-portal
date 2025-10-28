@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Role } from "@prisma/client";
 import Link from "next/link";
+import { canDownloadSubmissions } from "@/lib/permissions";
 
 interface Submission {
     id: string;
@@ -35,6 +36,7 @@ export default function SubmissionsList({ userRole, userOrganizationId, userId }
     const [submissions, setSubmissions] = useState<Submission[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [downloading, setDownloading] = useState(false);
 
     useEffect(() => {
         fetchSubmissions();
@@ -55,6 +57,50 @@ export default function SubmissionsList({ userRole, userOrganizationId, userId }
             setError(err instanceof Error ? err.message : 'An error occurred');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleDownload = async () => {
+        try {
+            setDownloading(true);
+            const response = await fetch('/api/submissions/export');
+
+            if (!response.ok) {
+                if (response.status === 403) {
+                    setError('You do not have permission to download submissions');
+                    return;
+                }
+                throw new Error('Failed to download submissions');
+            }
+
+            // Get the blob data
+            const blob = await response.blob();
+
+            // Extract filename from Content-Disposition header
+            const contentDisposition = response.headers.get('Content-Disposition');
+            let filename = 'submissions-export.csv';
+            if (contentDisposition) {
+                const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+                if (filenameMatch) {
+                    filename = filenameMatch[1];
+                }
+            }
+
+            // Create download link and trigger download
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+
+            // Cleanup
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to download submissions');
+        } finally {
+            setDownloading(false);
         }
     };
 
@@ -129,6 +175,15 @@ export default function SubmissionsList({ userRole, userOrganizationId, userId }
                     >
                         + New Submission
                     </Link>
+                    {canDownloadSubmissions(userRole) && (
+                        <button
+                            onClick={handleDownload}
+                            disabled={downloading || submissions.length === 0}
+                            className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {downloading ? 'Downloading...' : 'Download Submissions'}
+                        </button>
+                    )}
                     <div className="text-sm text-gray-500">
                         {submissions.length} submission{submissions.length !== 1 ? 's' : ''}
                     </div>

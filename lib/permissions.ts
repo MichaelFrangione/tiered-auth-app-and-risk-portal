@@ -1,42 +1,47 @@
-import { User, Role } from '@prisma/client'
+import { User, Role } from '@prisma/client';
 
 export function canAccessOrganization(user: User, orgId: string): boolean {
   // Admin can access all organizations
   if (user.role === Role.ADMIN) {
-    return true
+    return true;
   }
-  
+
   // Directors and analysts can only access their own organization
-  return user.organizationId === orgId
+  return user.organizationId === orgId;
 }
 
 export function canViewAllData(user: User): boolean {
   // Only admin and director can view all data
-  return user.role === Role.ADMIN || user.role === Role.DIRECTOR
+  return user.role === Role.ADMIN || user.role === Role.DIRECTOR;
 }
 
 export function getVisibleFields(user: User): string[] {
   switch (user.role) {
     case Role.ADMIN:
-      return ['id', 'name', 'email', 'role', 'organization', 'submissions', 'createdAt', 'updatedAt']
+      return ['id', 'name', 'email', 'role', 'organization', 'submissions', 'createdAt', 'updatedAt'];
     case Role.DIRECTOR:
-      return ['id', 'name', 'email', 'role', 'organization', 'submissions', 'createdAt', 'updatedAt']
+      return ['id', 'name', 'email', 'role', 'organization', 'submissions', 'createdAt', 'updatedAt'];
     case Role.ANALYST:
-      return ['id', 'name', 'email', 'role', 'createdAt'] // Limited fields for analysts
+      return ['id', 'name', 'email', 'role', 'createdAt']; // Limited fields for analysts
     default:
-      return ['id', 'name', 'email']
+      return ['id', 'name', 'email'];
   }
 }
 
 export function getRoleDisplayName(role: Role): string {
   switch (role) {
     case Role.ADMIN:
-      return 'Administrator'
+      return 'Administrator';
     case Role.DIRECTOR:
-      return 'Director'
+      return 'Director';
     case Role.ANALYST:
-      return 'Analyst'
+      return 'Analyst';
     default:
-      return 'Unknown'
+      return 'Unknown';
   }
+}
+
+export function canDownloadSubmissions(role: Role): boolean {
+  // Only admins and directors can download submissions
+  return role === Role.ADMIN || role === Role.DIRECTOR;
 }

@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Tiered Auth System",
-  description: "Next.js app with role-based authentication",
+  title: "Submission Analyzer",
+  description: "Submission management platform with risk assessment and role-based access control",
 };
 
 export default function RootLayout({
